@@ -8,8 +8,15 @@ using ChatApp.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+// Ensure correct overload is chosen: provide an empty configuration action and the profile marker type.
+builder.Services.AddAutoMapper(cfg => { }, typeof(Mapping));
 
-builder.Services.AddControllers();
+
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
+    options.JsonSerializerOptions.WriteIndented = true;//optional
+});
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

@@ -5,6 +5,7 @@ using ChatApp.Data;
 using Microsoft.EntityFrameworkCore;
 using ChatApp.Models;
 using ChatApp.Services;
+using AutoMapper;
 
 namespace ChatApp.Controllers
 {
@@ -14,10 +15,12 @@ namespace ChatApp.Controllers
     {
         private readonly ChatAppDbContext _dbContext;
         private readonly JwtService _jwtService;
-        public AuthController(ChatAppDbContext dbContext, JwtService jwtService)
+        private readonly IMapper _mapper;
+        public AuthController(ChatAppDbContext dbContext, JwtService jwtService, IMapper mapper)
         {
             _dbContext = dbContext;
             _jwtService = jwtService;
+            _mapper = mapper;
         }
 
         [HttpPost("Login")]
@@ -44,6 +47,19 @@ namespace ChatApp.Controllers
 
             var hashedPassword=BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
+            var existingRole = await _dbContext.Roles.FirstOrDefaultAsync(role => role.RoleName == dto.Role);
+
+            if(existingRole == null)
+            {
+                var roleToCreate = new Role
+                {
+                  RoleName= dto.Role
+                };
+                await _dbContext.Roles.AddAsync(roleToCreate);
+                await _dbContext.SaveChangesAsync();
+                existingRole = roleToCreate;
+            }
+
             var user = new User
             {
                 UserName = dto.UserName,
@@ -51,6 +67,13 @@ namespace ChatApp.Controllers
                 Password = hashedPassword,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
+                UserRoles = new List<UserRole>
+                {
+                    new UserRole
+                    {
+                        RoleId = existingRole.RoleId
+                    }
+                }
             };
 
             await _dbContext.Users.AddAsync(user);
@@ -59,8 +82,9 @@ namespace ChatApp.Controllers
             //jwt Token->
             var token = _jwtService.GenerateToken(dto);
 
+            var userToSend = _mapper.Map<RegisterResponseDTO>(user);
 
-            return Ok(new { token });
+            return Ok(new { token , user=userToSend });
         }
     }
 }
